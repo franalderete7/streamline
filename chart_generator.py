@@ -11,7 +11,7 @@ class ChartGenerator:
     @staticmethod
     def create_cash_flow_chart(df: pd.DataFrame, tea_costo_oportunidad: float) -> go.Figure:
         """
-        Create the main cash flow chart with dark theme
+        Create the main cash flow chart showing accumulated expenses, income, and difference
         
         Args:
             df: Cash flow DataFrame
@@ -20,11 +20,30 @@ class ChartGenerator:
         Returns:
             go.Figure: Plotly figure object
         """
-        # Create the main line chart
-        fig = px.line(df, x="Mes", 
-                      y=["Ingresos por Down Payment + Cuotas Mensuales (USD)", "Ingresos por Downpayment - Gastos Comision (USD)", "Gastos Construcción (USD)", 
-                         "Acumulado (USD)"],
-                      title="Evolución del Flujo de Caja",
+        # Calculate accumulated values
+        df_chart = df.copy()
+        
+        # Calculate accumulated expenses (construction + commissions)
+        df_chart['Gasto Acumulado por Mes (USD)'] = (
+            df_chart['Gastos Construcción (USD)'] + df_chart['Gastos Comisiones (USD)']
+        ).cumsum()
+        
+        # Calculate accumulated income
+        df_chart['Ingreso Acumulado por Mes (USD)'] = (
+            df_chart['Ingresos por Down Payment + Cuotas Mensuales (USD)']
+        ).cumsum()
+        
+        # Calculate difference (Income - Expenses)
+        df_chart['Diferencia Entre Ingresos y Gastos (USD)'] = (
+            df_chart['Ingreso Acumulado por Mes (USD)'] - df_chart['Gasto Acumulado por Mes (USD)']
+        )
+        
+        # Create the line chart with the three traces
+        fig = px.line(df_chart, x="Mes", 
+                      y=["Gasto Acumulado por Mes (USD)", 
+                         "Ingreso Acumulado por Mes (USD)", 
+                         "Diferencia Entre Ingresos y Gastos (USD)"],
+                      title="Evolución de Ingresos y Gastos Acumulados",
                       labels={"value": "USD", "variable": "Métricas"})
         
         # Improve chart styling with dark theme and increased scale
@@ -65,10 +84,21 @@ class ChartGenerator:
         )
         
         # Update line colors and styles
+        colors = ['#e74c3c', '#4CAF50', '#3498db']  # Red for expenses, Green for income, Blue for difference
+        
+        # Update all traces with common styling
         fig.update_traces(
             line=dict(width=4),  # Increased line width for better visibility
             hovertemplate='<b>%{fullData.name}</b><br>Mes: %{x}<br>USD: $%{y:,.0f}<extra></extra>'
         )
+        
+        # Update individual trace colors using update_traces with selector
+        trace_names = ["Gasto Acumulado por Mes (USD)", "Ingreso Acumulado por Mes (USD)", "Diferencia Entre Ingresos y Gastos (USD)"]
+        for i, (name, color) in enumerate(zip(trace_names, colors)):
+            fig.update_traces(
+                line_color=color,
+                selector=dict(name=name)
+            )
         
         # Update axes for dark theme
         fig.update_xaxes(
