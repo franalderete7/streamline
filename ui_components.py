@@ -54,7 +54,23 @@ class UIComponents:
         st.sidebar.subheader("💰 Ventas")
         comision_por_venta = st.sidebar.number_input("🤝 Comisión por Venta (USD)", value=2000.0, step=100.0, min_value=0.0)
         precio_por_duplex = st.sidebar.number_input("🏠 Precio por Dúplex (USD)", value=130000.0, step=1000.0, min_value=0.0)
-        num_cuotas = st.sidebar.number_input("📅 Número de Cuotas por Dúplex", value=20, step=1, min_value=1)
+        
+        # Payment structure
+        st.sidebar.write("**💳 Estructura de Pago:**")
+        porcentaje_down_payment = st.sidebar.number_input("💰 Down Payment (%)", value=40.0, step=1.0, min_value=0.0, max_value=100.0)
+        num_cuotas_restantes = st.sidebar.number_input("📅 Cuotas Restantes", value=10, step=1, min_value=1)
+        
+        # Calculate payment amounts
+        down_payment_amount = precio_por_duplex * (porcentaje_down_payment / 100)
+        remaining_amount = precio_por_duplex - down_payment_amount
+        cuota_restante_mensual = remaining_amount / num_cuotas_restantes if num_cuotas_restantes > 0 else 0
+        
+        st.sidebar.info(f"💰 **Down Payment:** ${down_payment_amount:,.0f} ({porcentaje_down_payment}%)")
+        st.sidebar.info(f"📊 **Monto Restante:** ${remaining_amount:,.0f}")
+        st.sidebar.info(f"💳 **Cuota Mensual Restante:** ${cuota_restante_mensual:,.0f}")
+        
+        # Keep legacy num_cuotas for compatibility (total payment period)
+        num_cuotas = num_cuotas_restantes
         
         st.sidebar.divider()
         
@@ -124,8 +140,15 @@ class UIComponents:
             'total_meses_construccion': total_meses_construccion,
             'promedio_duplex_por_mes': promedio_duplex_por_mes,
             'gasto_construccion_mensual': gasto_construccion_mensual,
+            
+            # Sales and payment structure
             'comision_por_venta': comision_por_venta,
             'precio_por_duplex': precio_por_duplex,
+            'porcentaje_down_payment': porcentaje_down_payment,
+            'num_cuotas_restantes': num_cuotas_restantes,
+            'down_payment_amount': down_payment_amount,
+            'remaining_amount': remaining_amount,
+            'cuota_restante_mensual': cuota_restante_mensual,
             'num_cuotas': num_cuotas,
             
             # Project structure

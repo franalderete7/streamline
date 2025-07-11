@@ -12,7 +12,9 @@ class CashFlowCalculator:
     def generar_flujo_caja(inversion_inicial: float, gasto_construccion_mensual: float, 
                           comision_por_venta: float, precio_por_duplex: float,
                           num_cuotas: int, duplex_por_etapa: int, meses_por_etapa: int, 
-                          total_etapas: int, tasa_ventas: float, tea_costo_oportunidad: float) -> pd.DataFrame:
+                          total_etapas: int, tasa_ventas: float, tea_costo_oportunidad: float,
+                          porcentaje_down_payment: float = 40.0, num_cuotas_restantes: int = 10,
+                          down_payment_amount: float = 0.0, cuota_restante_mensual: float = 0.0) -> pd.DataFrame:
         """
         Generate cash flow calculations for real estate project
         
@@ -34,11 +36,18 @@ class CashFlowCalculator:
         # Calcular parámetros derivados
         total_duplex = duplex_por_etapa * total_etapas
         total_meses_construccion = meses_por_etapa * total_etapas
+        
+        # Calculate payment structure if not provided
+        if down_payment_amount == 0.0:
+            down_payment_amount = precio_por_duplex * (porcentaje_down_payment / 100)
+        if cuota_restante_mensual == 0.0:
+            remaining_amount = precio_por_duplex - down_payment_amount
+            cuota_restante_mensual = remaining_amount / num_cuotas_restantes if num_cuotas_restantes > 0 else 0
+        
         # Ensure enough time to collect all cuotas even with slow sales
         # Add extra buffer for very slow sales rates
         extra_meses = max(0, int(total_duplex / max(tasa_ventas, 0.1)) - total_meses_construccion)
-        total_meses = total_meses_construccion + num_cuotas + extra_meses
-        cuota_mensual = precio_por_duplex / num_cuotas if num_cuotas > 0 else 0
+        total_meses = total_meses_construccion + num_cuotas_restantes + extra_meses
         tasa_mensual = (1 + tea_costo_oportunidad) ** (1/12) - 1 if tea_costo_oportunidad > 0 else 0
 
         # Crear DataFrame
@@ -47,6 +56,8 @@ class CashFlowCalculator:
             "Etapa de Construcción": [""] * (total_meses + 1),
             "Gastos Construcción (USD)": [0.0] * (total_meses + 1),
             "Gastos Comisiones (USD)": [0.0] * (total_meses + 1),
+            "Ingresos Down Payment (USD)": [0.0] * (total_meses + 1),
+            "Ingresos Cuotas Restantes (USD)": [0.0] * (total_meses + 1),
             "Ingresos por Cuotas (USD)": [0.0] * (total_meses + 1),
             "Dúplex Vendidos": [0] * (total_meses + 1),
             "Cuotas Activas": [0] * (total_meses + 1),
@@ -112,12 +123,16 @@ class CashFlowCalculator:
                         df.loc[mes, "Dúplex Vendidos"] = duplex_completos
                         df.loc[mes, "Gastos Comisiones (USD)"] = duplex_completos * comision_por_venta
                         
-                        # Generate cuotas for each complete duplex sold
+                        # Generate down payment income immediately
+                        down_payment_income = duplex_completos * down_payment_amount
+                        df.loc[mes, "Ingresos Down Payment (USD)"] = down_payment_income
+                        
+                        # Generate remaining cuotas for each complete duplex sold
                         for i in range(duplex_completos):
                             duplex_id = f"{mes}_{i}"
-                            cuotas_por_duplex[duplex_id] = num_cuotas
+                            cuotas_por_duplex[duplex_id] = num_cuotas_restantes
 
-            # Calcular cuotas activas e ingresos
+            # Calcular cuotas activas e ingresos restantes
             cuotas_activas = 0
             cuotas_por_duplex_actualizadas = {}
             
@@ -131,7 +146,14 @@ class CashFlowCalculator:
             
             cuotas_por_duplex = cuotas_por_duplex_actualizadas
             df.loc[mes, "Cuotas Activas"] = cuotas_activas
-            df.loc[mes, "Ingresos por Cuotas (USD)"] = cuotas_activas * cuota_mensual
+            
+            # Calculate income from remaining cuotas
+            ingresos_cuotas_restantes = cuotas_activas * cuota_restante_mensual
+            df.loc[mes, "Ingresos Cuotas Restantes (USD)"] = ingresos_cuotas_restantes
+            
+            # Total income is down payment + remaining cuotas
+            total_income = df.loc[mes, "Ingresos Down Payment (USD)"] + ingresos_cuotas_restantes
+            df.loc[mes, "Ingresos por Cuotas (USD)"] = total_income
 
             # Saldo neto mensual
             df.loc[mes, "Saldo Neto Mensual (USD)"] = df.loc[mes, "Ingresos por Cuotas (USD)"] - \

@@ -32,7 +32,11 @@ if 'df' not in st.session_state:
         inputs['meses_por_etapa'],
         inputs['total_etapas'], 
         inputs['tasa_ventas'], 
-        inputs['tea_costo_oportunidad']
+        inputs['tea_costo_oportunidad'],
+        inputs['porcentaje_down_payment'],
+        inputs['num_cuotas_restantes'],
+        inputs['down_payment_amount'],
+        inputs['cuota_restante_mensual']
     )
 
 # Recalculate when button is clicked
@@ -47,7 +51,11 @@ if inputs['recalcular']:
         inputs['meses_por_etapa'],
         inputs['total_etapas'], 
         inputs['tasa_ventas'], 
-        inputs['tea_costo_oportunidad']
+        inputs['tea_costo_oportunidad'],
+        inputs['porcentaje_down_payment'],
+        inputs['num_cuotas_restantes'],
+        inputs['down_payment_amount'],
+        inputs['cuota_restante_mensual']
     )
 
 # Get current DataFrame
