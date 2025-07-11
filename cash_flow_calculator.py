@@ -74,10 +74,20 @@ class CashFlowCalculator:
         df.loc[0, "Capital Invertido (USD)"] = inversion_inicial
         df.loc[0, "Costo de Oportunidad Mensual (USD, TEA {:.2f}% Depósito USD)".format(tea_costo_oportunidad * 100)] = inversion_inicial * tasa_mensual
 
-        # Calcular ventas y cuotas - FIXED for fractional rates
+        # Calcular ventas y cuotas - NON-OVERLAPPING ETAPA SALES
         duplex_vendidos_acumulados = 0
         fraccion_acumulada = 0.0  # Accumulate fractions until we have whole duplexes
         cuotas_por_duplex = {}  # {mes_inicio: cuotas_restantes}
+        
+        # Track sales by etapa
+        duplex_vendidos_por_etapa = [0] * total_etapas  # Track sold duplexes per etapa
+        etapa_actual_venta = 0  # Current etapa being sold (0-indexed)
+        
+        # Calculate when each etapa can start selling
+        # Etapa 1: starts month 1 (construction starts)
+        # Etapa 2: starts max(month 16, month when etapa 1 is sold out)
+        # Etapa 3: starts max(month 31, month when etapa 2 is sold out)
+        etapa_inicio_venta = {}  # Will be populated as we go
         
         for mes in range(1, total_meses + 1):
             # Asignar etapa
@@ -91,14 +101,51 @@ class CashFlowCalculator:
             if mes <= total_meses_construccion:
                 df.loc[mes, "Gastos Construcción (USD)"] = gasto_construccion_mensual
 
-            # Ventas de dúplex - ENSURE ALL DUPLEXES GET SOLD
+            # Determine which etapa we can sell from this month
+            # Calculate when each etapa's sales can start
+            if etapa_actual_venta == 0:
+                # Etapa 1 can start selling from month 1
+                if 1 not in etapa_inicio_venta:
+                    etapa_inicio_venta[1] = 1
+            elif etapa_actual_venta == 1:
+                # Etapa 2 can start selling when:
+                # 1. Etapa 2 construction starts (month 16) AND
+                # 2. Etapa 1 is sold out
+                etapa_2_construccion_inicio = meses_por_etapa + 1  # Month 16
+                if duplex_vendidos_por_etapa[0] >= duplex_por_etapa and mes >= etapa_2_construccion_inicio:
+                    if 2 not in etapa_inicio_venta:
+                        etapa_inicio_venta[2] = mes
+            elif etapa_actual_venta == 2:
+                # Etapa 3 can start selling when:
+                # 1. Etapa 3 construction starts (month 31) AND
+                # 2. Etapa 2 is sold out
+                etapa_3_construccion_inicio = meses_por_etapa * 2 + 1  # Month 31
+                if duplex_vendidos_por_etapa[1] >= duplex_por_etapa and mes >= etapa_3_construccion_inicio:
+                    if 3 not in etapa_inicio_venta:
+                        etapa_inicio_venta[3] = mes
+
+            # Ventas de dúplex - NON-OVERLAPPING ETAPA SALES
             duplex_vendidos_mes = 0
-            if duplex_vendidos_acumulados < total_duplex:
-                # Calculate rate for this month
-                duplex_disponibles = total_duplex - duplex_vendidos_acumulados
+            
+            # Check if we can sell from current etapa
+            can_sell_this_month = False
+            if etapa_actual_venta < total_etapas:
+                etapa_numero = etapa_actual_venta + 1
+                if etapa_numero in etapa_inicio_venta and mes >= etapa_inicio_venta[etapa_numero]:
+                    # We can sell from this etapa if it's not sold out
+                    if duplex_vendidos_por_etapa[etapa_actual_venta] < duplex_por_etapa:
+                        can_sell_this_month = True
+                    else:
+                        # Current etapa is sold out, move to next etapa
+                        etapa_actual_venta += 1
+                        can_sell_this_month = False  # Check next etapa next month
+            
+            if can_sell_this_month and duplex_vendidos_acumulados < total_duplex:
+                # Calculate available duplexes from current etapa
+                duplex_disponibles_etapa = duplex_por_etapa - duplex_vendidos_por_etapa[etapa_actual_venta]
                 
                 # Use consistent sales rate throughout the project
-                tasa_mes = min(tasa_ventas, duplex_disponibles)
+                tasa_mes = min(tasa_ventas, duplex_disponibles_etapa)
                 
                 if tasa_mes > 0:
                     # Accumulate fractional sales
@@ -108,12 +155,14 @@ class CashFlowCalculator:
                     duplex_completos = int(fraccion_acumulada)
                     fraccion_acumulada -= duplex_completos
                     
-                    # Don't exceed available duplexes
-                    duplex_completos = min(duplex_completos, duplex_disponibles)
+                    # Don't exceed available duplexes from current etapa
+                    duplex_completos = min(duplex_completos, duplex_disponibles_etapa)
                     
                     if duplex_completos > 0:
                         duplex_vendidos_mes = duplex_completos
                         duplex_vendidos_acumulados += duplex_completos
+                        duplex_vendidos_por_etapa[etapa_actual_venta] += duplex_completos
+                        
                         df.loc[mes, "Dúplex Vendidos"] = duplex_completos
                         df.loc[mes, "Gastos Comisiones (USD)"] = duplex_completos * comision_por_venta
                         

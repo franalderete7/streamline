@@ -23,24 +23,24 @@ class ChartGenerator:
         # Create the main line chart
         fig = px.line(df, x="Mes", 
                       y=["Ingresos por Down Payment + Cuotas Mensuales (USD)", "Ingresos por Downpayment - Gastos Comision (USD)", "Gastos Construcción (USD)", 
-                         "Acumulado (USD)", f"Costo de Oportunidad Mensual (USD, TEA {tea_costo_oportunidad * 100:.2f}% Depósito USD)"],
+                         "Acumulado (USD)"],
                       title="Evolución del Flujo de Caja",
                       labels={"value": "USD", "variable": "Métricas"})
         
-        # Improve chart styling with dark theme
+        # Improve chart styling with dark theme and increased scale
         fig.update_layout(
             legend_title_text="",
             template="plotly_dark",  # Changed to dark template
-            title_font_size=20,
+            title_font_size=24,  # Increased title font size
             title_font_color="#e0e0e0",  # Light color for dark background
-            font=dict(size=12, color="#e0e0e0"),  # Light text color
+            font=dict(size=14, color="#e0e0e0"),  # Increased font size
             plot_bgcolor='#2d2d2d',  # Dark background
             paper_bgcolor='#2d2d2d',  # Dark background
-            margin=dict(l=50, r=50, t=100, b=50),  # Increased top margin for legend
+            margin=dict(l=80, r=80, t=120, b=80),  # Increased margins for better spacing
             hovermode='x unified',
             hoverlabel=dict(
                 bgcolor="#1a1a1a", 
-                font_size=12, 
+                font_size=14,  # Increased hover font size
                 font_family="Arial",
                 font_color="#e0e0e0"
             ),
@@ -53,24 +53,22 @@ class ChartGenerator:
                 bgcolor='rgba(45, 45, 45, 0.8)',  # Semi-transparent dark background
                 bordercolor='#555555',
                 borderwidth=1,
-                font=dict(size=11, color="#e0e0e0"),
+                font=dict(size=13, color="#e0e0e0"),  # Increased legend font size
                 itemsizing='constant',
-                itemwidth=30,
+                itemwidth=40,  # Increased item width
                 itemclick=False,  # Disable click to hide/show
                 itemdoubleclick=False
-            )
+            ),
+            # Increased chart size for better visibility
+            width=1200,  # Increased width
+            height=700   # Increased height
         )
         
         # Update line colors and styles
         fig.update_traces(
-            line=dict(width=3),
+            line=dict(width=4),  # Increased line width for better visibility
             hovertemplate='<b>%{fullData.name}</b><br>Mes: %{x}<br>USD: $%{y:,.0f}<extra></extra>'
         )
-        
-        # Customize colors for dark theme
-        colors = ['#4CAF50', '#2ecc71', '#e74c3c', '#f39c12', '#3498db', '#9b59b6']
-        for i in range(len(fig.data)):
-            fig.data[i].line.color = colors[i % len(colors)]
         
         # Update axes for dark theme
         fig.update_xaxes(
@@ -123,16 +121,19 @@ class ChartGenerator:
         
         fig.update_layout(
             title="Resumen Financiero del Proyecto",
-            title_font_size=18,
+            title_font_size=22,  # Increased title font size
             title_font_color="#e0e0e0",
             xaxis_title="Categorías",
             yaxis_title="USD",
             template="plotly_dark",
             plot_bgcolor='#2d2d2d',
             paper_bgcolor='#2d2d2d',
-            margin=dict(l=50, r=50, t=80, b=50),
+            margin=dict(l=80, r=80, t=100, b=80),  # Increased margins
             showlegend=False,
-            font=dict(color="#e0e0e0")
+            font=dict(color="#e0e0e0", size=14),  # Increased font size
+            # Increased chart size for better visibility
+            width=1200,  # Increased width
+            height=600   # Increased height
         )
         
         # Update axes for dark theme
