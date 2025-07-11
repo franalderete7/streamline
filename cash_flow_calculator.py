@@ -34,7 +34,10 @@ class CashFlowCalculator:
         # Calcular parámetros derivados
         total_duplex = duplex_por_etapa * total_etapas
         total_meses_construccion = meses_por_etapa * total_etapas
-        total_meses = total_meses_construccion + num_cuotas  # Incluye período de cobro de cuotas
+        # Ensure enough time to collect all cuotas even with slow sales
+        # Add extra buffer for very slow sales rates
+        extra_meses = max(0, int(total_duplex / max(tasa_ventas, 0.1)) - total_meses_construccion)
+        total_meses = total_meses_construccion + num_cuotas + extra_meses
         cuota_mensual = precio_por_duplex / num_cuotas if num_cuotas > 0 else 0
         tasa_mensual = (1 + tea_costo_oportunidad) ** (1/12) - 1 if tea_costo_oportunidad > 0 else 0
 
@@ -62,8 +65,9 @@ class CashFlowCalculator:
         df.loc[0, "Capital Invertido (USD)"] = inversion_inicial
         df.loc[0, "Costo de Oportunidad Mensual (USD, TEA {:.2f}% Depósito USD)".format(tea_costo_oportunidad * 100)] = inversion_inicial * tasa_mensual
 
-        # Calcular ventas y cuotas
+        # Calcular ventas y cuotas - FIXED for fractional rates
         duplex_vendidos_acumulados = 0
+        fraccion_acumulada = 0.0  # Accumulate fractions until we have whole duplexes
         cuotas_por_duplex = {}  # {mes_inicio: cuotas_restantes}
         
         for mes in range(1, total_meses + 1):
@@ -78,24 +82,40 @@ class CashFlowCalculator:
             if mes <= total_meses_construccion:
                 df.loc[mes, "Gastos Construcción (USD)"] = gasto_construccion_mensual
 
-            # Ventas de dúplex (solo durante la construcción)
+            # Ventas de dúplex - ENSURE ALL DUPLEXES GET SOLD
             duplex_vendidos_mes = 0
-            if mes <= total_meses_construccion and duplex_vendidos_acumulados < total_duplex:
-                # Calcular cuántos dúplex se venden este mes
+            if duplex_vendidos_acumulados < total_duplex:
+                # Calculate rate for this month
                 duplex_disponibles = total_duplex - duplex_vendidos_acumulados
-                duplex_vendidos_mes = min(tasa_ventas, duplex_disponibles)
                 
-                if duplex_vendidos_mes > 0:
-                    duplex_vendidos_acumulados += duplex_vendidos_mes
-                    df.loc[mes, "Dúplex Vendidos"] = duplex_vendidos_mes
-                    df.loc[mes, "Gastos Comisiones (USD)"] = duplex_vendidos_mes * comision_por_venta
+                if mes <= total_meses_construccion:
+                    # During construction: use specified rate
+                    tasa_mes = min(tasa_ventas, duplex_disponibles)
+                else:
+                    # After construction: sell remaining quickly (up to 5 per month)
+                    tasa_mes = min(5.0, duplex_disponibles)
+                
+                if tasa_mes > 0:
+                    # Accumulate fractional sales
+                    fraccion_acumulada += tasa_mes
                     
-                    # Agregar las cuotas para cada dúplex vendido este mes
-                    # Usar un identificador único para cada dúplex vendido en el mismo mes
-                    for i in range(int(duplex_vendidos_mes)):
-                        # Crear un identificador único para cada dúplex
-                        duplex_id = f"{mes}_{i}"
-                        cuotas_por_duplex[duplex_id] = num_cuotas
+                    # Sell complete duplexes only
+                    duplex_completos = int(fraccion_acumulada)
+                    fraccion_acumulada -= duplex_completos
+                    
+                    # Don't exceed available duplexes
+                    duplex_completos = min(duplex_completos, duplex_disponibles)
+                    
+                    if duplex_completos > 0:
+                        duplex_vendidos_mes = duplex_completos
+                        duplex_vendidos_acumulados += duplex_completos
+                        df.loc[mes, "Dúplex Vendidos"] = duplex_completos
+                        df.loc[mes, "Gastos Comisiones (USD)"] = duplex_completos * comision_por_venta
+                        
+                        # Generate cuotas for each complete duplex sold
+                        for i in range(duplex_completos):
+                            duplex_id = f"{mes}_{i}"
+                            cuotas_por_duplex[duplex_id] = num_cuotas
 
             # Calcular cuotas activas e ingresos
             cuotas_activas = 0
@@ -146,7 +166,11 @@ class CashFlowCalculator:
         total_gastos = df["Gastos Construcción (USD)"].sum() + df["Gastos Comisiones (USD)"].sum()
         ganancia_neta = total_ingresos - total_gastos
         costo_oportunidad_total = df[f"Costo de Oportunidad Mensual (USD, TEA {tea_costo_oportunidad * 100:.2f}% Depósito USD)"].sum()
-        mes_recuperacion = df[df["Acumulado (USD)"] > 0]["Mes"].iloc[0] if not df[df["Acumulado (USD)"] > 0].empty else "No alcanzado"
+        positive_months = df[df["Acumulado (USD)"] > 0]
+        if len(positive_months) > 0:
+            mes_recuperacion = positive_months["Mes"].tolist()[0]
+        else:
+            mes_recuperacion = "No alcanzado"
         
         return {
             'total_ingresos': total_ingresos,
