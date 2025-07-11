@@ -45,7 +45,8 @@ class UIComponents:
         
         # Construction parameters
         st.sidebar.subheader("🏗️ Construcción")
-        gasto_construccion_mensual = st.sidebar.number_input("🔨 Gasto Construcción Mensual (USD)", value=52888.0, step=1000.0, min_value=0.0)
+        superficie_promedio_duplex = st.sidebar.number_input("📐 Superficie Promedio Dúplex (M²)", value=90.4, step=0.1, min_value=0.1)
+        costo_construccion_por_m2 = st.sidebar.number_input("💰 Costo Construcción por M² (USD)", value=1100.0, step=10.0, min_value=0.0)
         
         st.sidebar.divider()
         
@@ -66,6 +67,14 @@ class UIComponents:
         # Calculate total duplexes
         total_duplex = duplex_por_etapa * total_etapas
         st.sidebar.info(f"🏠 **Total Dúplex:** {total_duplex} unidades")
+        
+        # Calculate monthly construction expense based on construction parameters
+        total_meses_construccion = meses_por_etapa * total_etapas
+        promedio_duplex_por_mes = total_duplex / total_meses_construccion if total_meses_construccion > 0 else 0
+        gasto_construccion_mensual = superficie_promedio_duplex * costo_construccion_por_m2 * promedio_duplex_por_mes
+        
+        st.sidebar.info(f"📊 **Promedio Dúplex/Mes:** {promedio_duplex_por_mes:.2f}")
+        st.sidebar.success(f"🔨 **Gasto Construcción Mensual:** ${gasto_construccion_mensual:,.0f}")
         
         st.sidebar.divider()
         
@@ -88,6 +97,7 @@ class UIComponents:
         **🌍 Costo Terreno:** ${total_costo_terreno:,.0f}  
         **🔧 Gastos Pre-Obra:** ${gastos_varios_antes_obra:,.0f}  
         **🏠 Total Dúplex:** {total_duplex}  
+        **🔨 Gasto Construcción/Mes:** ${gasto_construccion_mensual:,.0f}  
         **💸 Ingreso Potencial:** ${ingreso_potencial:,.0f}  
         **🎯 Tasa Ventas:** {tasa_ventas}/mes  
         """)
@@ -108,7 +118,11 @@ class UIComponents:
             # Total investment
             'inversion_inicial': inversion_inicial,
             
-            # Construction and operations
+            # Construction parameters
+            'superficie_promedio_duplex': superficie_promedio_duplex,
+            'costo_construccion_por_m2': costo_construccion_por_m2,
+            'total_meses_construccion': total_meses_construccion,
+            'promedio_duplex_por_mes': promedio_duplex_por_mes,
             'gasto_construccion_mensual': gasto_construccion_mensual,
             'comision_por_venta': comision_por_venta,
             'precio_por_duplex': precio_por_duplex,
