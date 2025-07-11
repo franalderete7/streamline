@@ -22,7 +22,7 @@ class ChartGenerator:
         """
         # Create the main line chart
         fig = px.line(df, x="Mes", 
-                      y=["Ingresos por Cuotas (USD)", "Gastos Construcción (USD)", "Gastos Comisiones (USD)", 
+                      y=["Ingresos por Down Payment + Cuotas Mensuales (USD)", "Ingresos por Downpayment - Gastos Comision (USD)", "Gastos Construcción (USD)", 
                          "Acumulado (USD)", f"Costo de Oportunidad Mensual (USD, TEA {tea_costo_oportunidad * 100:.2f}% Depósito USD)"],
                       title="Evolución del Flujo de Caja",
                       labels={"value": "USD", "variable": "Métricas"})
@@ -68,9 +68,9 @@ class ChartGenerator:
         )
         
         # Customize colors for dark theme
-        colors = ['#4CAF50', '#e74c3c', '#f39c12', '#3498db', '#9b59b6']
-        for i, trace in enumerate(fig.data):
-            trace.line.color = colors[i % len(colors)]
+        colors = ['#4CAF50', '#2ecc71', '#e74c3c', '#f39c12', '#3498db', '#9b59b6']
+        for i in range(len(fig.data)):
+            fig.data[i].line.color = colors[i % len(colors)]
         
         # Update axes for dark theme
         fig.update_xaxes(
@@ -101,7 +101,7 @@ class ChartGenerator:
             go.Figure: Plotly figure object
         """
         # Calculate summary metrics
-        total_ingresos = df['Ingresos por Cuotas (USD)'].sum()
+        total_ingresos = df['Ingresos por Down Payment + Cuotas Mensuales (USD)'].sum()
         total_gastos_construccion = df['Gastos Construcción (USD)'].sum()
         total_gastos_comisiones = df['Gastos Comisiones (USD)'].sum()
         

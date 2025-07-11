@@ -56,12 +56,11 @@ class CashFlowCalculator:
             "Etapa de Construcción": [""] * (total_meses + 1),
             "Gastos Construcción (USD)": [0.0] * (total_meses + 1),
             "Gastos Comisiones (USD)": [0.0] * (total_meses + 1),
-            "Ingresos Down Payment (USD)": [0.0] * (total_meses + 1),
+            "Ingresos por Downpayment - Gastos Comision (USD)": [0.0] * (total_meses + 1),
             "Ingresos Cuotas Restantes (USD)": [0.0] * (total_meses + 1),
-            "Ingresos por Cuotas (USD)": [0.0] * (total_meses + 1),
+            "Ingresos por Down Payment + Cuotas Mensuales (USD)": [0.0] * (total_meses + 1),
             "Dúplex Vendidos": [0] * (total_meses + 1),
             "Cuotas Activas": [0] * (total_meses + 1),
-            "Saldo Neto Mensual (USD)": [0.0] * (total_meses + 1),
             "Ingresos Acumulados (USD)": [0.0] * (total_meses + 1),
             "Acumulado (USD)": [0.0] * (total_meses + 1),
             "Capital Invertido (USD)": [0.0] * (total_meses + 1),
@@ -71,7 +70,6 @@ class CashFlowCalculator:
         # Mes 0: Inversión inicial
         df.loc[0, "Etapa de Construcción"] = "Inicial"
         df.loc[0, "Gastos Construcción (USD)"] = inversion_inicial
-        df.loc[0, "Saldo Neto Mensual (USD)"] = -inversion_inicial
         df.loc[0, "Acumulado (USD)"] = -inversion_inicial
         df.loc[0, "Capital Invertido (USD)"] = inversion_inicial
         df.loc[0, "Costo de Oportunidad Mensual (USD, TEA {:.2f}% Depósito USD)".format(tea_costo_oportunidad * 100)] = inversion_inicial * tasa_mensual
@@ -99,12 +97,8 @@ class CashFlowCalculator:
                 # Calculate rate for this month
                 duplex_disponibles = total_duplex - duplex_vendidos_acumulados
                 
-                if mes <= total_meses_construccion:
-                    # During construction: use specified rate
-                    tasa_mes = min(tasa_ventas, duplex_disponibles)
-                else:
-                    # After construction: sell remaining quickly (up to 5 per month)
-                    tasa_mes = min(5.0, duplex_disponibles)
+                # Use consistent sales rate throughout the project
+                tasa_mes = min(tasa_ventas, duplex_disponibles)
                 
                 if tasa_mes > 0:
                     # Accumulate fractional sales
@@ -123,26 +117,40 @@ class CashFlowCalculator:
                         df.loc[mes, "Dúplex Vendidos"] = duplex_completos
                         df.loc[mes, "Gastos Comisiones (USD)"] = duplex_completos * comision_por_venta
                         
-                        # Generate down payment income immediately
+                        # Generate down payment income minus commission immediately
                         down_payment_income = duplex_completos * down_payment_amount
-                        df.loc[mes, "Ingresos Down Payment (USD)"] = down_payment_income
+                        commission_expense = duplex_completos * comision_por_venta
+                        df.loc[mes, "Ingresos por Downpayment - Gastos Comision (USD)"] = down_payment_income - commission_expense
+                        df.loc[mes, "Gastos Comisiones (USD)"] = commission_expense  # Keep for reference/tracking
                         
-                        # Generate remaining cuotas for each complete duplex sold
+                        # Generate remaining cuotas for each complete duplex sold - START NEXT MONTH
                         for i in range(duplex_completos):
                             duplex_id = f"{mes}_{i}"
-                            cuotas_por_duplex[duplex_id] = num_cuotas_restantes
+                            cuotas_por_duplex[duplex_id] = {
+                                'cuotas_restantes': num_cuotas_restantes,
+                                'mes_venta': mes
+                            }
 
-            # Calcular cuotas activas e ingresos restantes
+            # Calcular cuotas activas e ingresos restantes - START FROM NEXT MONTH AFTER SALE
             cuotas_activas = 0
             cuotas_por_duplex_actualizadas = {}
             
-            for duplex_id, cuotas_restantes in cuotas_por_duplex.items():
-                mes_inicio = int(duplex_id.split('_')[0])
-                if mes >= mes_inicio and cuotas_restantes > 0:
+            for duplex_id, duplex_info in cuotas_por_duplex.items():
+                mes_venta = duplex_info['mes_venta']
+                cuotas_restantes = duplex_info['cuotas_restantes']
+                
+                # First cuota starts the month AFTER the sale
+                if mes > mes_venta and cuotas_restantes > 0:
                     cuotas_activas += 1
                     cuotas_restantes -= 1
                     if cuotas_restantes > 0:
-                        cuotas_por_duplex_actualizadas[duplex_id] = cuotas_restantes
+                        cuotas_por_duplex_actualizadas[duplex_id] = {
+                            'cuotas_restantes': cuotas_restantes,
+                            'mes_venta': mes_venta
+                        }
+                elif cuotas_restantes > 0:
+                    # Keep the duplex in the list but don't collect cuota this month
+                    cuotas_por_duplex_actualizadas[duplex_id] = duplex_info
             
             cuotas_por_duplex = cuotas_por_duplex_actualizadas
             df.loc[mes, "Cuotas Activas"] = cuotas_activas
@@ -151,18 +159,19 @@ class CashFlowCalculator:
             ingresos_cuotas_restantes = cuotas_activas * cuota_restante_mensual
             df.loc[mes, "Ingresos Cuotas Restantes (USD)"] = ingresos_cuotas_restantes
             
-            # Total income is down payment + remaining cuotas
-            total_income = df.loc[mes, "Ingresos Down Payment (USD)"] + ingresos_cuotas_restantes
-            df.loc[mes, "Ingresos por Cuotas (USD)"] = total_income
+            # Total income is down payment (net of commission) + remaining cuotas
+            total_income = df.loc[mes, "Ingresos por Downpayment - Gastos Comision (USD)"] + ingresos_cuotas_restantes
+            df.loc[mes, "Ingresos por Down Payment + Cuotas Mensuales (USD)"] = total_income
 
-            # Saldo neto mensual
-            df.loc[mes, "Saldo Neto Mensual (USD)"] = df.loc[mes, "Ingresos por Cuotas (USD)"] - \
-                                                      df.loc[mes, "Gastos Construcción (USD)"] - \
-                                                      df.loc[mes, "Gastos Comisiones (USD)"]
-
-            # Ingresos acumulados y acumulado
-            df.loc[mes, "Ingresos Acumulados (USD)"] = df.loc[:mes, "Ingresos por Cuotas (USD)"].sum()
-            df.loc[mes, "Acumulado (USD)"] = df.loc[:mes, "Saldo Neto Mensual (USD)"].sum()
+            # Ingresos acumulados y acumulado (commission already subtracted in down payment column)
+            df.loc[mes, "Ingresos Acumulados (USD)"] = df.loc[:mes, "Ingresos por Down Payment + Cuotas Mensuales (USD)"].sum()
+            
+            # Calculate net flow for this month (commission already subtracted in down payment column)
+            saldo_neto_mensual = df.loc[mes, "Ingresos por Down Payment + Cuotas Mensuales (USD)"] - \
+                                df.loc[mes, "Gastos Construcción (USD)"]
+            
+            # Update accumulated balance
+            df.loc[mes, "Acumulado (USD)"] = df.loc[mes-1, "Acumulado (USD)"] + saldo_neto_mensual
 
             # Capital invertido y costo de oportunidad
             df.loc[mes, "Capital Invertido (USD)"] = -df.loc[mes, "Acumulado (USD)"] if df.loc[mes, "Acumulado (USD)"] < 0 else 0
@@ -183,9 +192,10 @@ class CashFlowCalculator:
         Returns:
             Dict with financial metrics
         """
-        # Calcular métricas
-        total_ingresos = df["Ingresos por Cuotas (USD)"].sum()
-        total_gastos = df["Gastos Construcción (USD)"].sum() + df["Gastos Comisiones (USD)"].sum()
+        # Calcular métricas (commission already netted in down payment column)
+        total_ingresos = df["Ingresos por Down Payment + Cuotas Mensuales (USD)"].sum()
+        total_gastos = df["Gastos Construcción (USD)"].sum()  # Commission already subtracted from income
+        total_comisiones = df["Gastos Comisiones (USD)"].sum()  # Track commission separately for display
         ganancia_neta = total_ingresos - total_gastos
         costo_oportunidad_total = df[f"Costo de Oportunidad Mensual (USD, TEA {tea_costo_oportunidad * 100:.2f}% Depósito USD)"].sum()
         positive_months = df[df["Acumulado (USD)"] > 0]
@@ -197,6 +207,7 @@ class CashFlowCalculator:
         return {
             'total_ingresos': total_ingresos,
             'total_gastos': total_gastos,
+            'total_comisiones': total_comisiones,
             'ganancia_neta': ganancia_neta,
             'costo_oportunidad_total': costo_oportunidad_total,
             'mes_recuperacion': mes_recuperacion

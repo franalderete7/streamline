@@ -53,7 +53,7 @@ class UIComponents:
         # Sales parameters
         st.sidebar.subheader("💰 Ventas")
         comision_por_venta = st.sidebar.number_input("🤝 Comisión por Venta (USD)", value=2000.0, step=100.0, min_value=0.0)
-        precio_por_duplex = st.sidebar.number_input("🏠 Precio por Dúplex (USD)", value=130000.0, step=1000.0, min_value=0.0)
+        precio_por_duplex = st.sidebar.number_input("🏠 Precio por Dúplex (USD)", value=140000.0, step=1000.0, min_value=0.0)
         
         # Payment structure
         st.sidebar.write("**💳 Estructura de Pago:**")
@@ -96,7 +96,7 @@ class UIComponents:
         
         # Financial parameters
         st.sidebar.subheader("📈 Parámetros Financieros")
-        tasa_ventas = st.sidebar.number_input("🎯 Tasa de Ventas (Dúplex por Mes)", value=1.0, step=0.1, min_value=0.1)
+        tasa_ventas = st.sidebar.number_input("🎯 Tasa de Ventas (Dúplex por Mes)", value=0.5, step=0.1, min_value=0.1)
         tea_costo_oportunidad = st.sidebar.number_input("💹 TEA Costo de Oportunidad (%)", value=5.12, step=0.1, min_value=0.0) / 100
         
         st.sidebar.divider()
@@ -108,12 +108,14 @@ class UIComponents:
         st.sidebar.markdown("---")
         st.sidebar.markdown("### 📊 Resumen Rápido")
         ingreso_potencial = precio_por_duplex * total_duplex
+        costo_comisiones_total = comision_por_venta * total_duplex
         st.sidebar.markdown(f"""
         **💰 Inversión Total:** ${inversion_inicial:,.0f}  
         **🌍 Costo Terreno:** ${total_costo_terreno:,.0f}  
         **🔧 Gastos Pre-Obra:** ${gastos_varios_antes_obra:,.0f}  
         **🏠 Total Dúplex:** {total_duplex}  
         **🔨 Gasto Construcción/Mes:** ${gasto_construccion_mensual:,.0f}  
+        **🤝 Costo Total Comisiones:** ${costo_comisiones_total:,.0f}  
         **💸 Ingreso Potencial:** ${ingreso_potencial:,.0f}  
         **🎯 Tasa Ventas:** {tasa_ventas}/mes  
         """)
@@ -150,6 +152,7 @@ class UIComponents:
             'remaining_amount': remaining_amount,
             'cuota_restante_mensual': cuota_restante_mensual,
             'num_cuotas': num_cuotas,
+            'costo_comisiones_total': costo_comisiones_total,
             
             # Project structure
             'duplex_por_etapa': duplex_por_etapa,
@@ -174,16 +177,25 @@ class UIComponents:
             df: DataFrame to display
         """
         st.subheader("Tabla de Flujo de Caja")
-        st.dataframe(df.style.format({
+        
+        # Format columns with proper numeric formatting
+        format_dict = {
             "Gastos Construcción (USD)": "{:,.2f}",
             "Gastos Comisiones (USD)": "{:,.2f}",
-            "Ingresos por Cuotas (USD)": "{:,.2f}",
-            "Saldo Neto Mensual (USD)": "{:,.2f}",
+            "Ingresos por Downpayment - Gastos Comision (USD)": "{:,.2f}",
+            "Ingresos Cuotas Restantes (USD)": "{:,.2f}",
+            "Ingresos por Down Payment + Cuotas Mensuales (USD)": "{:,.2f}",
             "Ingresos Acumulados (USD)": "{:,.2f}",
             "Acumulado (USD)": "{:,.2f}",
-            "Capital Invertido (USD)": "{:,.2f}",
-            f"Costo de Oportunidad Mensual (USD, TEA {df.columns[-1].split('TEA ')[1].split('%')[0]}% Depósito USD)": "{:,.2f}"
-        }), use_container_width=True)
+            "Capital Invertido (USD)": "{:,.2f}"
+        }
+        
+        # Add the opportunity cost column with dynamic formatting
+        opportunity_cost_col = [col for col in df.columns if "Costo de Oportunidad Mensual" in col]
+        if opportunity_cost_col:
+            format_dict[opportunity_cost_col[0]] = "{:,.2f}"
+        
+        st.dataframe(df.style.format(format_dict), use_container_width=True)
     
     @staticmethod
     def render_financial_summary(metricas: Dict[str, Any], tea_costo_oportunidad: float):
@@ -199,6 +211,7 @@ class UIComponents:
         <div class="summary-box">
             <p><b>Ingresos Totales:</b> USD {:,.2f}</p>
             <p><b>Gastos Totales:</b> USD {:,.2f}</p>
+            <p><b>Costo Total Comisiones:</b> USD {:,.2f}</p>
             <p><b>Ganancia Neta:</b> USD {:,.2f}</p>
             <p><b>Costo de Oportunidad Total (TEA {:.2f}%):</b> USD {:,.2f}</p>
             <p><b>Mes de Recuperación de Inversión:</b> Mes {}</p>
@@ -206,6 +219,7 @@ class UIComponents:
         """.format(
             metricas['total_ingresos'], 
             metricas['total_gastos'], 
+            metricas.get('total_comisiones', 0.0),
             metricas['ganancia_neta'], 
             tea_costo_oportunidad * 100, 
             metricas['costo_oportunidad_total'], 
