@@ -44,10 +44,30 @@ class CashFlowCalculator:
             remaining_amount = precio_por_duplex - down_payment_amount
             cuota_restante_mensual = remaining_amount / num_cuotas_restantes if num_cuotas_restantes > 0 else 0
         
-        # Ensure enough time to collect all cuotas even with slow sales
-        # Add extra buffer for very slow sales rates
+        # Calculate realistic timeline to ensure ALL payments are collected
+        # Estimate when the last duplex will be sold based on non-overlapping etapa sales
+        
+        # Etapa 1: starts month 1, sells 11 duplexes at 0.5/month = ~22 months to complete
+        # Etapa 2: starts max(month 16, when etapa 1 finishes), sells 11 duplexes
+        # Etapa 3: starts max(month 31, when etapa 2 finishes), sells 11 duplexes
+        
+        # Conservative estimate: account for sales rate and etapa dependencies
+        etapa_1_completion = max(1, int(duplex_por_etapa / max(tasa_ventas, 0.1)))
+        etapa_2_start = max(meses_por_etapa + 1, etapa_1_completion + 1)  # Month 16 or when etapa 1 finishes
+        etapa_2_completion = etapa_2_start + int(duplex_por_etapa / max(tasa_ventas, 0.1))
+        etapa_3_start = max(meses_por_etapa * 2 + 1, etapa_2_completion + 1)  # Month 31 or when etapa 2 finishes
+        etapa_3_completion = etapa_3_start + int(duplex_por_etapa / max(tasa_ventas, 0.1))
+        
+        # Last sale month is when etapa 3 completes
+        estimated_last_sale_month = etapa_3_completion
+        
+        # Ensure timeline extends enough to collect ALL payments from the last sale
+        minimum_total_months = estimated_last_sale_month + num_cuotas_restantes
+        
+        # Use the larger of the original calculation or our new minimum
         extra_meses = max(0, int(total_duplex / max(tasa_ventas, 0.1)) - total_meses_construccion)
-        total_meses = total_meses_construccion + num_cuotas_restantes + extra_meses
+        original_total_meses = total_meses_construccion + num_cuotas_restantes + extra_meses
+        total_meses = max(original_total_meses, minimum_total_months)
         tasa_mensual = (1 + tea_costo_oportunidad) ** (1/12) - 1 if tea_costo_oportunidad > 0 else 0
 
         # Crear DataFrame
