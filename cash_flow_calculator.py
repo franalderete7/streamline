@@ -96,7 +96,7 @@ class CashFlowCalculator:
 
         # Calcular ventas y cuotas - NON-OVERLAPPING ETAPA SALES
         duplex_vendidos_acumulados = 0
-        fraccion_acumulada = 0.0  # Accumulate fractions until we have whole duplexes
+        fraccion_acumulada = tasa_ventas  # Start with initial sales rate to enable month 1 sales
         cuotas_por_duplex = {}  # {mes_inicio: cuotas_restantes}
         
         # Track sales by etapa
