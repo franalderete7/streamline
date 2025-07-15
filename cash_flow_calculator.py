@@ -96,12 +96,13 @@ class CashFlowCalculator:
 
         # Calcular ventas y cuotas - NON-OVERLAPPING ETAPA SALES
         duplex_vendidos_acumulados = 0
-        fraccion_acumulada = tasa_ventas  # Start with initial sales rate to enable month 1 sales
+        fraccion_acumulada = 0.0  # Accumulate fractions until we have whole duplexes
         cuotas_por_duplex = {}  # {mes_inicio: cuotas_restantes}
         
         # Track sales by etapa
         duplex_vendidos_por_etapa = [0] * total_etapas  # Track sold duplexes per etapa
         etapa_actual_venta = 0  # Current etapa being sold (0-indexed)
+        etapa_first_month_sales = {}  # Track if this is the first month of sales for each etapa
         
         # Calculate when each etapa can start selling
         # Etapa 1: starts month 1 (construction starts)
@@ -168,8 +169,21 @@ class CashFlowCalculator:
                 tasa_mes = min(tasa_ventas, duplex_disponibles_etapa)
                 
                 if tasa_mes > 0:
-                    # Accumulate fractional sales
-                    fraccion_acumulada += tasa_mes
+                    # Check if this is the first month of sales for this etapa
+                    etapa_numero = etapa_actual_venta + 1
+                    is_first_month_for_etapa = etapa_numero not in etapa_first_month_sales
+                    
+                    if is_first_month_for_etapa:
+                        # For the first month of sales for this etapa, ensure we can make at least 1 sale
+                        # if the rate is fractional, start with 1.0 to enable first month sales
+                        if tasa_mes < 1.0:
+                            fraccion_acumulada = 1.0
+                        else:
+                            fraccion_acumulada += tasa_mes
+                        etapa_first_month_sales[etapa_numero] = mes
+                    else:
+                        # Normal fractional accumulation for subsequent months
+                        fraccion_acumulada += tasa_mes
                     
                     # Sell complete duplexes only
                     duplex_completos = int(fraccion_acumulada)
