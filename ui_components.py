@@ -96,7 +96,7 @@ class UIComponents:
         
         # Financial parameters
         st.sidebar.subheader("📈 Parámetros Financieros")
-        tasa_ventas = st.sidebar.number_input("🎯 Tasa de Ventas (Dúplex por Mes)", value=0.5, step=0.1, min_value=0.1)
+        tasa_ventas = st.sidebar.number_input("🎯 Tasa de Ventas (Dúplex por Mes)", value=1.0, step=0.1, min_value=0.1)
         tea_costo_oportunidad = st.sidebar.number_input("💹 TEA Costo de Oportunidad (%)", value=5.12, step=0.1, min_value=0.0) / 100
         
         st.sidebar.divider()

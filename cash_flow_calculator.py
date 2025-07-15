@@ -102,7 +102,6 @@ class CashFlowCalculator:
         # Track sales by etapa
         duplex_vendidos_por_etapa = [0] * total_etapas  # Track sold duplexes per etapa
         etapa_actual_venta = 0  # Current etapa being sold (0-indexed)
-        etapa_first_month_sales = {}  # Track if this is the first month of sales for each etapa
         
         # Calculate when each etapa can start selling
         # Etapa 1: starts month 1 (construction starts)
@@ -169,22 +168,14 @@ class CashFlowCalculator:
                 tasa_mes = min(tasa_ventas, duplex_disponibles_etapa)
                 
                 if tasa_mes > 0:
-                    # Check if this is the first month of sales for this etapa
-                    etapa_numero = etapa_actual_venta + 1
-                    is_first_month_for_etapa = etapa_numero not in etapa_first_month_sales
-                    
-                    if is_first_month_for_etapa:
-                        # For the first month of sales for this etapa, ensure we can make at least 1 sale
-                        # if the rate is fractional, start with 1.0 to enable first month sales
-                        if tasa_mes < 1.0:
-                            fraccion_acumulada = 1.0
-                        else:
-                            fraccion_acumulada += tasa_mes
-                        etapa_first_month_sales[etapa_numero] = mes
+                    # If it's the very first month of sales and the rate is fractional,
+                    # give it a one-time boost to ensure a sale happens.
+                    # Otherwise, just accumulate the sales rate.
+                    if mes == 1 and tasa_ventas < 1.0:
+                        fraccion_acumulada = 1.0
                     else:
-                        # Normal fractional accumulation for subsequent months
                         fraccion_acumulada += tasa_mes
-                    
+
                     # Sell complete duplexes only
                     duplex_completos = int(fraccion_acumulada)
                     fraccion_acumulada -= duplex_completos
