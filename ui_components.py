@@ -7,6 +7,11 @@ class UIComponents:
     Handles all UI components and interface logic
     """
     
+    # Project structure constants
+    DUPLEX_POR_ETAPA = 11
+    MESES_POR_ETAPA = 15
+    TOTAL_ETAPAS = 3
+    
     @staticmethod
     def render_sidebar() -> Dict[str, Any]:
         """
@@ -74,18 +79,18 @@ class UIComponents:
         
         st.sidebar.divider()
         
-        # Project structure
+        # Project structure - now displayed as constants
         st.sidebar.subheader("📋 Estructura del Proyecto")
-        duplex_por_etapa = st.sidebar.number_input("🏘️ Dúplex por Etapa", value=11, step=1, min_value=1)
-        meses_por_etapa = st.sidebar.number_input("⏱️ Meses por Etapa", value=15, step=1, min_value=1)
-        total_etapas = st.sidebar.number_input("📊 Total Etapas", value=3, step=1, min_value=1)
+        st.sidebar.info(f"🏘️ **Dúplex por Etapa:** {UIComponents.DUPLEX_POR_ETAPA}")
+        st.sidebar.info(f"⏱️ **Meses por Etapa:** {UIComponents.MESES_POR_ETAPA}")
+        st.sidebar.info(f"📊 **Total Etapas:** {UIComponents.TOTAL_ETAPAS}")
         
-        # Calculate total duplexes
-        total_duplex = duplex_por_etapa * total_etapas
+        # Calculate total duplexes using constants
+        total_duplex = UIComponents.DUPLEX_POR_ETAPA * UIComponents.TOTAL_ETAPAS
         st.sidebar.info(f"🏠 **Total Dúplex:** {total_duplex} unidades")
         
         # Calculate monthly construction expense based on construction parameters
-        total_meses_construccion = meses_por_etapa * total_etapas
+        total_meses_construccion = UIComponents.MESES_POR_ETAPA * UIComponents.TOTAL_ETAPAS
         promedio_duplex_por_mes = total_duplex / total_meses_construccion if total_meses_construccion > 0 else 0
         gasto_construccion_mensual = superficie_promedio_duplex * costo_construccion_por_m2 * promedio_duplex_por_mes
         
@@ -154,10 +159,10 @@ class UIComponents:
             'num_cuotas': num_cuotas,
             'costo_comisiones_total': costo_comisiones_total,
             
-            # Project structure
-            'duplex_por_etapa': duplex_por_etapa,
-            'meses_por_etapa': meses_por_etapa,
-            'total_etapas': total_etapas,
+            # Project structure constants (for compatibility)
+            'duplex_por_etapa': UIComponents.DUPLEX_POR_ETAPA,
+            'meses_por_etapa': UIComponents.MESES_POR_ETAPA,
+            'total_etapas': UIComponents.TOTAL_ETAPAS,
             'total_duplex': total_duplex,
             
             # Financial parameters
